@@ -1,5 +1,5 @@
-from flask import Flask, request
-from flask.ext.mysql import MySQL
+from flask import Flask, request, jsonify
+from flaskext.mysql import MySQL
 import uuid
 app = Flask(__name__)
 mysql = MySQL()
@@ -12,6 +12,9 @@ app.config['MYSQL_DATABASE_HOST'] = 'localhost'
 mysql.init_app(app)
 conn = mysql.connect()
 cursor = conn.cursor()
+passengerId = 1
+groupId = 1
+transportationId = 1
 
 @app.route('/')
 def hello_world():
@@ -20,49 +23,79 @@ def hello_world():
 @app.route('/addPassenger', methods=['POST'])
 def addPassenger():
     #name, age, gender
-    name = request.form['name']
-    age = request.form['age']
-    gender = request.form['gender']
-    passengerId = str(uuid.uuidv4())
+    json = request.get_json()
+    name = str(json['name'])
+    age = int(json['age'])
+    gender = str(json['gender'])
     #mysql
-    cursor.execute(''' INSERT INTO Passengers(PassengerId, Gender, Age, PassengerName) VALUES (passengerId, gender, age, name) ''');
+    global passengerId
+    f = "INSERT INTO Passengers(PassengerId, Gender, Age, PassengerName) VALUES (%s, %s, %s, %s)"
+    cursor.execute(f, (passengerId, gender, age, name))
+    passengerId += 1
+    conn.commit()
     return jsonify({'status':'OK'})
 
 @app.route('/createGroup', methods=['POST'])
 def createGroup():
     #source, destination, modeoftransportation, groupsize, purpose
-    source = request.form['source']
-    destination = request.form['destination']
-    modeOfTransportation = request.form['modeOfTransportation']
-    groupSize = request.form['groupSize']
-    purpose = request.form['purpose']
-    groupId = str(uuid.uuidv4())
-    cursor.execute(''' INSERT INTO Groups (GroupId, SourceLocation, DestinationLocation, ModeOfTransportation, GroupSize, Purpose) VALUES (groupId, source, destination, modeOfTranspportation, groupSize, purpose) ''')
+    json = request.get_json()
+    source = str(json['source'])
+    destination = str(json['destination'])
+    modeOfTransportation = str(json['modeOfTransportation'])
+    groupSize = int(json['groupSize'])
+    purpose = str(json['purpose'])
+    global groupId
+    f = "INSERT INTO Groups(GroupId, SourceLocation, DestinationLication, ModeOfTransportation, GroupSize, Purpose) VALUES (%s, %s, %s, %s, %s, %s)"
+    cursor.execute(f, (groupId, source, destination, modeOfTransportation, groupSize, purpose))
+    groupId += 1
+    conn.commit()
     return jsonify({'status':'OK'})
 
 @app.route('/transportation', methods=['POST'])
 def transportation():
     #type, along with the appropriate information for each
-    typeOfTransport = request.form['type']
-    classOfTransport = request.form['class']
-    transportId = str(uuid.uuidv4())
+    json = request.get_json()
+    typeOfTransport = str(json['type'])
+    classOfTransport = str(json['class'])
+    global transportationId
     if(typeOfTransport == 'Flight'):
-        cursor.execute(''' INSERT INTO Transportation (TransportationId, Class, TransportType) VALUES (transportId, classOfTransport, typeOfTransport) ''')
+        f = "INSERT INTO Transportation (TransportationId, Class, TransportType) VALUES (%s, %s, %s)"
+        cursor.execute(f, (transportationId, classOfTransport, typeOfTransport))
+        conn.commit()
         #add also into flight database
-        flightNumber = request.form['flightNumber']
-        source = request.form['source']
-        destination = request.form['destination']
-        classOfFlight = request.form['classOfFlight']
-        fare = request.form['fare']
-        flightCarrier = request.form['flightCarrier']
-        cursor.execute(''' INSERT INTO Flight(FlightNumber, SourceLocation, DestinationLocation, Class, Fare, FlightCarrier) VALUES (flightNumber, source, destination, classOfFlight, fare, flightCarrier) ''')
-        return jsonify({'status':'OK'})
+        flightNumber = int(json['flightNumber'])
+        source = str(json['source'])
+        destination = str(json['destination'])
+        classOfFlight = str(json['classOfFlight'])
+        fare = float(json['fare'])
+        flightCarrier = str(json['flightCarrier'])
+        ff = "INSERT INTO Flight VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(ff, (flightNumber, source, destination, classOfFlight, fare, flightCarrier))
+        conn.commit()
     elif (typeOfTransport == 'Cruise'):
-        return jsonify({'status':'OK'})
+        f = "INSERT INTO Transportation (TransportationId, Class, TransportType) VALUES (%s, %s, %s)"
+        cursor.execute(f, (transportationId, classOfTransport, typeOfTransport))
+        conn.commit()
+        cruiseNumber = int(json['cruiseNumber'])
+        fare = float(json['fare'])
+        source = str(json['source'])
+        destination = str(json['destination'])
+        ff = "INSERT INTO Cruise VALUES (%s, %s, %s, %s)"
+        cursor.execute(ff, (cruiseNumber, fare, source, destination))
+        conn.commit()
     else:
-        return jsonify({'status':'OK'})
-
+        f = "INSERT INTO Transportation (TransportationId, Class, TransportType) VALUES (%s, %s, %s)"
+        cursor.execute(f, (transportationId, classOfTransport, typeOfTransport))
+        conn.commit()
+        carRentalId = int(json['carRentalId'])
+        carType = str(json['carType'])
+        rent = float(json['rent'])
+        ff = "INSERT INTO CarRental (CarRentalConfirmationId, CarType, Rent) VALUES (%s, %s, %s)"
+        cursor.execute(ff, (carRentalId, carType, rent))
+        conn.commit()
+    transportationId += 1
+    return jsonify({'status':'OK'})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", port=80)
 
